@@ -41,7 +41,8 @@ class MainActivity : ComponentActivity() {
                 val currentRoute = backStackEntry?.destination?.route
                 val showBottomBar = !isFullscreen &&
                     currentRoute != Screen.Splash.route &&
-                    currentRoute != Screen.Onboarding.route
+                    currentRoute != Screen.Onboarding.route &&
+                    currentRoute != Screen.Home.route
 
                 SideEffect {
                     shouldEnterPipOnLeave = currentRoute == Screen.Home.route && !isFullscreen
