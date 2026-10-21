@@ -25,6 +25,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(navController: NavController) {
+    val context    = androidx.compose.ui.platform.LocalContext.current
     // Logo scale animation
     val logoScale  = remember { Animatable(0.5f) }
     val logoAlpha  = remember { Animatable(0f) }
@@ -41,8 +42,13 @@ fun SplashScreen(navController: NavController) {
         textAlpha.animateTo(1f, animationSpec = tween(400))
         // Hold for polish
         delay(1200)
-        // Navigate to onboarding
-        navController.navigate(Screen.Onboarding.route) {
+        // If Brave is already installed, launch straight into Home
+        val targetRoute = if (com.freetube.app.util.BraveHelper.isBraveInstalled(context)) {
+            Screen.Home.route
+        } else {
+            Screen.Onboarding.route
+        }
+        navController.navigate(targetRoute) {
             popUpTo(Screen.Splash.route) { inclusive = true }
         }
     }

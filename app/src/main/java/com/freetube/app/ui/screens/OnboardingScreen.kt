@@ -1,7 +1,5 @@
 package com.freetube.app.ui.screens
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -17,25 +15,45 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
+import com.freetube.app.navigation.Screen
 import com.freetube.app.ui.theme.*
-
-private const val BRAVE_PACKAGE = "com.brave.browser"
+import com.freetube.app.util.BraveHelper
 
 @Composable
 fun OnboardingScreen(navController: NavController) {
     val context = LocalContext.current
-    val braveInstalled = remember {
-        runCatching {
-            context.packageManager.getPackageInfo(BRAVE_PACKAGE, 0)
-            true
-        }.getOrDefault(false)
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var braveInstalled by remember {
+        mutableStateOf(BraveHelper.isBraveInstalled(context))
+    }
+
+    // Auto-detect when returning to the app from Play Store or background
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                braveInstalled = BraveHelper.isBraveInstalled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val navigateToHome = {
+        navController.navigate(Screen.Home.route) {
+            popUpTo(Screen.Onboarding.route) { inclusive = true }
+        }
     }
 
     // Continuous pulse animation for the Brave logo ring
@@ -193,7 +211,7 @@ fun OnboardingScreen(navController: NavController) {
 
                     Text(
                         text       = if (braveInstalled) "Brave is installed ✓"
-                                      else              "Brave Browser Required",
+                                      else              "Brave Browser Recommended",
                         fontSize   = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color      = if (braveInstalled) Color(0xFF00C853) else White,
@@ -204,9 +222,9 @@ fun OnboardingScreen(navController: NavController) {
 
                     Text(
                         text      = if (braveInstalled)
-                            "Ad-free YouTube is ready. FreeTube will open all videos in Brave, which blocks ads automatically."
+                            "Ad-free YouTube is ready! FreeTube will open all videos in Brave to block ads automatically."
                         else
-                            "FreeTube opens YouTube in Brave Browser, which blocks all ads automatically. Install Brave to get started.",
+                            "FreeTube opens YouTube in Brave Browser to block all ads automatically. You can install it now or continue anyway.",
                         style     = MaterialTheme.typography.bodyMedium,
                         color     = WhiteDim,
                         textAlign = TextAlign.Center
@@ -214,14 +232,10 @@ fun OnboardingScreen(navController: NavController) {
 
                     Spacer(Modifier.height(20.dp))
 
-                    // ── CTA button ───────────────────────────────────
+                    // ── CTA buttons ───────────────────────────────────
                     if (braveInstalled) {
                         Button(
-                            onClick = {
-                                navController.navigate("home") {
-                                    popUpTo("onboarding") { inclusive = true }
-                                }
-                            },
+                            onClick  = navigateToHome,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
@@ -235,12 +249,7 @@ fun OnboardingScreen(navController: NavController) {
                     } else {
                         // Install Brave button
                         Button(
-                            onClick = {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW,
-                                        Uri.parse("https://play.google.com/store/apps/details?id=$BRAVE_PACKAGE"))
-                                )
-                            },
+                            onClick  = { BraveHelper.openBravePlayStore(context) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
@@ -254,12 +263,12 @@ fun OnboardingScreen(navController: NavController) {
 
                         Spacer(Modifier.height(12.dp))
 
-                        // Already installed? Refresh check
+                        // Already installed / Continue to FreeTube
                         OutlinedButton(
-                            onClick = {
-                                navController.navigate("onboarding") {
-                                    popUpTo("onboarding") { inclusive = true }
-                                }
+                            onClick  = {
+                                // Recheck Brave, and enter the app!
+                                braveInstalled = BraveHelper.isBraveInstalled(context)
+                                navigateToHome()
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -267,9 +276,9 @@ fun OnboardingScreen(navController: NavController) {
                             shape  = RoundedCornerShape(14.dp),
                             border = BorderStroke(1.dp, DividerColor)
                         ) {
-                            Icon(Icons.Filled.Refresh, contentDescription = null, tint = WhiteDim)
+                            Icon(Icons.Filled.ArrowForward, contentDescription = null, tint = White)
                             Spacer(Modifier.width(8.dp))
-                            Text("I already installed Brave", color = WhiteDim, fontSize = 14.sp)
+                            Text("I already have Brave / Continue", color = White, fontSize = 14.sp)
                         }
                     }
                 }

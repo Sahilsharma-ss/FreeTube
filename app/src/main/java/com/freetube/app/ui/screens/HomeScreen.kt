@@ -101,8 +101,13 @@ fun HomeScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.dismissBraveDialog() }) {
-                    Text("Cancel", color = com.freetube.app.ui.theme.WhiteMuted)
+                Row {
+                    TextButton(onClick = { viewModel.openPendingInDefaultBrowser(context) }) {
+                        Text("Open Anyway", color = com.freetube.app.ui.theme.WhiteDim)
+                    }
+                    TextButton(onClick = { viewModel.dismissBraveDialog() }) {
+                        Text("Cancel", color = com.freetube.app.ui.theme.WhiteMuted)
+                    }
                 }
             }
         )
