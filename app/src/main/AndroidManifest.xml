@@ -2,13 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Package visibility queries required for Android 11+ (API level 30+) -->
     <queries>
-        <package android:name="com.brave.browser" />
-        <package android:name="com.brave.browser_beta" />
-        <package android:name="com.brave.browser_nightly" />
-        <package android:name="com.brave.browser_release" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />
@@ -24,6 +20,7 @@
     <application
         android:name=".FreeTubeApp"
         android:allowBackup="true"
+        android:hardwareAccelerated="true"
         android:icon="@drawable/ic_launcher"
         android:roundIcon="@drawable/ic_launcher_round"
         android:label="@string/app_name"
@@ -33,6 +30,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

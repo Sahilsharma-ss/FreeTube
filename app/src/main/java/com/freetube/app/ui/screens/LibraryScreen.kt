@@ -130,13 +130,19 @@ fun LibraryScreen(
                 LibraryTab.BOOKMARKS -> BookmarksList(
                     bookmarks   = bookmarks,
                     padding     = padding,
-                    onOpen      = { bm -> homeVM.openInBrave(context, bm.url, bm.title) },
+                    onOpen      = { bm -> 
+                        homeVM.openVideo(bm.url, bm.title)
+                        navController.navigate(Screen.Home.route)
+                    },
                     onDelete    = { bm -> libraryVM.deleteBookmark(bm) }
                 )
                 LibraryTab.HISTORY   -> HistoryList(
                     history     = history,
                     padding     = padding,
-                    onOpen      = { item -> homeVM.openInBrave(context, item.url, item.title) },
+                    onOpen      = { item -> 
+                        homeVM.openVideo(item.url, item.title)
+                        navController.navigate(Screen.Home.route)
+                    },
                     onDelete    = { item -> libraryVM.deleteHistoryItem(item) }
                 )
             }

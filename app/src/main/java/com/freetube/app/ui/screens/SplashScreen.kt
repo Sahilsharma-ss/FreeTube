@@ -42,13 +42,8 @@ fun SplashScreen(navController: NavController) {
         textAlpha.animateTo(1f, animationSpec = tween(400))
         // Hold for polish
         delay(1200)
-        // If Brave is already installed, launch straight into Home
-        val targetRoute = if (com.freetube.app.util.BraveHelper.isBraveInstalled(context)) {
-            Screen.Home.route
-        } else {
-            Screen.Onboarding.route
-        }
-        navController.navigate(targetRoute) {
+        // Launch directly into FreeTube In-App YouTube
+        navController.navigate(Screen.Home.route) {
             popUpTo(Screen.Splash.route) { inclusive = true }
         }
     }

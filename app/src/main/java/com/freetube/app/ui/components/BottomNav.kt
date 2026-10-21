@@ -54,7 +54,9 @@ fun FreeTubeBottomNav(navController: NavController) {
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    if (current != item.route) {
+                    if (item.route == Screen.Home.route && current == Screen.Home.route) {
+                        com.freetube.app.ui.PlayerStateManager.loadUrl("https://m.youtube.com")
+                    } else if (current != item.route) {
                         navController.navigate(item.route) {
                             popUpTo(Screen.Home.route) { saveState = true }
                             launchSingleTop = true

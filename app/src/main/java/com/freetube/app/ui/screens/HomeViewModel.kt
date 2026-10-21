@@ -8,7 +8,7 @@ import com.freetube.app.data.local.BookmarkDao
 import com.freetube.app.data.local.HistoryDao
 import com.freetube.app.data.model.Bookmark
 import com.freetube.app.data.model.HistoryItem
-import com.freetube.app.util.BraveHelper
+import com.freetube.app.ui.PlayerStateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,26 +24,32 @@ class HomeViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
 
-    // Dialog state and pending URL
-    private val _showBraveDialog = MutableStateFlow(false)
-    val showBraveDialog: StateFlow<Boolean> = _showBraveDialog
-
-    private var pendingUrl: String? = null
-
     fun onSearchQueryChange(q: String) { _searchQuery.value = q }
-    fun dismissBraveDialog()          { 
-        _showBraveDialog.value = false
-        pendingUrl = null
-    }
-
-    /** Returns true if Brave is installed on this device. */
-    fun isBraveInstalled(context: Context): Boolean = BraveHelper.isBraveInstalled(context)
 
     /**
-     * Opens the given URL in Brave Browser.
-     * Records watch history and launches Brave.
-     * If Brave launch fails, opens the dialog allowing install or fallback.
+     * Plays the video or loads the URL directly in the in-app YouTube player.
+     * Records to history automatically.
      */
+    fun openVideo(
+        url:       String,
+        title:     String = "",
+        thumbnail: String = "",
+        channel:   String = ""
+    ) {
+        viewModelScope.launch {
+            historyDao.insertHistoryItem(
+                HistoryItem(
+                    title       = title.ifBlank { "YouTube Video" },
+                    url         = url,
+                    thumbnail   = thumbnail,
+                    channelName = channel
+                )
+            )
+        }
+        PlayerStateManager.loadUrl(url)
+    }
+
+    // Keep backwards compatibility for any callers passing context
     fun openInBrave(
         context:   Context,
         url:       String,
@@ -51,32 +57,7 @@ class HomeViewModel @Inject constructor(
         thumbnail: String = "",
         channel:   String = ""
     ) {
-        // Record to history
-        viewModelScope.launch {
-            historyDao.insertHistoryItem(
-                HistoryItem(title = title, url = url, thumbnail = thumbnail, channelName = channel)
-            )
-        }
-
-        val success = BraveHelper.launchUrlInBrave(context, url)
-        if (!success) {
-            pendingUrl = url
-            _showBraveDialog.value = true
-        }
-    }
-
-    /** Opens the pending URL in any available browser if user opts to continue without Brave. */
-    fun openPendingInDefaultBrowser(context: Context) {
-        pendingUrl?.let { url ->
-            BraveHelper.launchUrlInAnyBrowser(context, url)
-        }
-        dismissBraveDialog()
-    }
-
-    /** Opens the Play Store page for Brave Browser. */
-    fun openBraveOnPlayStore(context: Context) {
-        BraveHelper.openBravePlayStore(context)
-        _showBraveDialog.value = false
+        openVideo(url, title, thumbnail, channel)
     }
 
     fun bookmarkVideo(title: String, url: String, thumbnail: String = "", channel: String = "") =
@@ -87,7 +68,7 @@ class HomeViewModel @Inject constructor(
         }
 
     fun searchOnYouTube(context: Context, query: String) {
-        val searchUrl = "https://www.youtube.com/results?search_query=${Uri.encode(query)}"
-        openInBrave(context, searchUrl, "Search: $query")
+        val searchUrl = "https://m.youtube.com/results?search_query=${Uri.encode(query)}"
+        openVideo(searchUrl, "Search: $query")
     }
 }

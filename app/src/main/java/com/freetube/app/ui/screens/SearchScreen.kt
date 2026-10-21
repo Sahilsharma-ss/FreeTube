@@ -47,6 +47,14 @@ fun SearchScreen(
     val searchQuery  by viewModel.searchQuery.collectAsState()
     var showSuggestions by remember { mutableStateOf(true) }
 
+    val performSearch = { query: String ->
+        if (query.isNotBlank()) {
+            viewModel.searchOnYouTube(context, query)
+            focusManager.clearFocus()
+            navController.navigate(Screen.Home.route)
+        }
+    }
+
     Scaffold(
         containerColor = Black,
         topBar = {
@@ -88,26 +96,14 @@ fun SearchScreen(
                                     Icon(Icons.Filled.Clear, contentDescription = "Clear", tint = WhiteMuted)
                                 }
                             }
-                            IconButton(onClick = {
-                                if (searchQuery.isNotBlank()) {
-                                    viewModel.searchOnYouTube(context, searchQuery)
-                                    focusManager.clearFocus()
-                                }
-                            }) {
+                            IconButton(onClick = { performSearch(searchQuery) }) {
                                 Icon(Icons.Filled.ArrowForward, contentDescription = "Search", tint = FTRed)
                             }
                         }
                     },
                     singleLine      = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(
-                        onSearch = {
-                            if (searchQuery.isNotBlank()) {
-                                viewModel.searchOnYouTube(context, searchQuery)
-                                focusManager.clearFocus()
-                            }
-                        }
-                    ),
+                    keyboardActions = KeyboardActions(onSearch = { performSearch(searchQuery) }),
                     shape  = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor   = BlackCard,
@@ -178,7 +174,7 @@ fun SearchScreen(
                         text    = suggestion,
                         onClick = {
                             viewModel.onSearchQueryChange(suggestion)
-                            viewModel.searchOnYouTube(context, suggestion)
+                            performSearch(suggestion)
                         }
                     )
                     HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
@@ -193,7 +189,7 @@ fun SearchScreen(
                         text    = suggestion,
                         onClick = {
                             viewModel.onSearchQueryChange(suggestion)
-                            viewModel.searchOnYouTube(context, suggestion)
+                            performSearch(suggestion)
                         }
                     )
                     HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
@@ -215,7 +211,7 @@ fun SearchScreen(
                 TopicCard(
                     emoji   = topic.first,
                     label   = topic.second,
-                    onClick = { viewModel.searchOnYouTube(context, topic.second) }
+                    onClick = { performSearch(topic.second) }
                 )
                 Spacer(Modifier.height(8.dp))
             }

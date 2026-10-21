@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.freetube.app.navigation.FreeTubeNavHost
 import com.freetube.app.navigation.Screen
+import com.freetube.app.ui.PlayerStateManager
 import com.freetube.app.ui.components.FreeTubeBottomNav
 import com.freetube.app.ui.theme.Black
 import com.freetube.app.ui.theme.BlackSurface
@@ -42,17 +43,24 @@ class MainActivity : ComponentActivity() {
                 val systemUiController = rememberSystemUiController()
                 val backStackEntry     by navController.currentBackStackEntryAsState()
                 val currentRoute       = backStackEntry?.destination?.route
-                val showBottomNav      = currentRoute !in noNavBarRoutes
+
+                val isFullscreen by PlayerStateManager.isFullscreen.collectAsState()
+                val showBottomNav = (currentRoute !in noNavBarRoutes) && !isFullscreen
 
                 SideEffect {
-                    systemUiController.setStatusBarColor(
-                        color     = Color.Transparent,
-                        darkIcons = false
-                    )
-                    systemUiController.setNavigationBarColor(
-                        color     = if (showBottomNav) BlackSurface else Black,
-                        darkIcons = false
-                    )
+                    if (isFullscreen) {
+                        systemUiController.isSystemBarsVisible = false
+                    } else {
+                        systemUiController.isSystemBarsVisible = true
+                        systemUiController.setStatusBarColor(
+                            color     = Color.Transparent,
+                            darkIcons = false
+                        )
+                        systemUiController.setNavigationBarColor(
+                            color     = if (showBottomNav) BlackSurface else Black,
+                            darkIcons = false
+                        )
+                    }
                 }
 
                 Scaffold(
