@@ -25,7 +25,6 @@ import androidx.navigation.NavController
 import com.freetube.app.navigation.Screen
 import com.freetube.app.data.model.Bookmark
 import com.freetube.app.data.model.HistoryItem
-import com.freetube.app.navigation.Screen
 import com.freetube.app.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
