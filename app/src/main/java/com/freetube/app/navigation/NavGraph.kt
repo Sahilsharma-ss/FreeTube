@@ -14,7 +14,7 @@ fun FreeTubeNavHost(navController: NavHostController) {
     ) {
         composable(Screen.Splash.route)      { SplashScreen(navController) }
         composable(Screen.Onboarding.route)  { OnboardingScreen(navController) }
-        composable(Screen.Home.route)        { YouTubeScreen(navController) }
+        composable(Screen.Home.route)        { YouTubeScreen() }
         composable(Screen.Search.route)      { SearchScreen(navController) }
         composable(Screen.Library.route)     { LibraryScreen(navController) }
         composable(Screen.Settings.route)    { SettingsScreen(navController) }
