@@ -13,26 +13,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.navigation.NavController
 import com.freetube.app.ui.PlayerStateManager
 import com.freetube.app.util.AdBlockEngine
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun YouTubeScreen(
-    navController: NavController,
     initialUrl: String = "https://m.youtube.com"
 ) {
-    val context = LocalContext.current
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var customView by remember { mutableStateOf<View?>(null) }
     var customViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
 
     val pendingUrlToLoad by PlayerStateManager.loadUrlEvent.collectAsState()
 
-    // Handle incoming URL change events (e.g. from tabs or links)
+    // Handle incoming URL change events
     LaunchedEffect(pendingUrlToLoad) {
         pendingUrlToLoad?.let { url ->
             webViewRef?.let { wv ->
@@ -59,7 +55,7 @@ fun YouTubeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color(0xFF0F0F0F))
     ) {
         if (customView != null) {
             // Fullscreen video player view
@@ -75,7 +71,7 @@ fun YouTubeScreen(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            // Standard in-app YouTube view (NO URL bar)
+            // Pure In-App YouTube (NO URL bar, pure native web app)
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
@@ -117,8 +113,8 @@ fun YouTubeScreen(
                                 request: WebResourceRequest?
                             ): Boolean {
                                 val url = request?.url?.toString() ?: return false
-                                
-                                // Keep all YouTube, Google Auth, and internal media inside the WebView
+
+                                // Keep all YouTube, Google Auth, and internal media inside the app
                                 if (url.contains("youtube.com") ||
                                     url.contains("youtu.be") ||
                                     url.contains("google.com/accounts") ||

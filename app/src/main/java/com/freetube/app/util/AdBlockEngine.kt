@@ -41,20 +41,59 @@ object AdBlockEngine {
             pointer-events: none !important;
         }
 
-        /* Ensure deep dark AMOLED background */
+        /* Pure Dark AMOLED background */
         html, body {
             background-color: #0F0F0F !important;
         }
     """.trimIndent()
 
-    val AD_BLOCK_JS = """
+    val AD_BLOCK_AND_BACKGROUND_JS = """
         (function() {
-            if (window._ft_adblock_initialized) return;
-            window._ft_adblock_initialized = true;
+            if (window._ft_initialized) return;
+            window._ft_initialized = true;
 
-            // 1. Auto-skip video ads
+            // ── 1. Enable Background & Off-Screen Playback ──────────────
+            // Spoof Document Visibility so YouTube believes tab is always visible and screen is on
+            try {
+                Object.defineProperty(document, 'hidden', {
+                    get: function() { return false; },
+                    configurable: true
+                });
+                Object.defineProperty(document, 'visibilityState', {
+                    get: function() { return 'visible'; },
+                    configurable: true
+                });
+                Object.defineProperty(document, 'webkitVisibilityState', {
+                    get: function() { return 'visible'; },
+                    configurable: true
+                });
+
+                // Prevent visibility change listeners from pausing video
+                var stopEvent = function(e) {
+                    e.stopImmediatePropagation();
+                };
+                window.addEventListener('visibilitychange', stopEvent, true);
+                document.addEventListener('visibilitychange', stopEvent, true);
+                window.addEventListener('blur', stopEvent, true);
+                window.addEventListener('pagehide', stopEvent, true);
+            } catch(e) {}
+
+            // Track user playing state to auto-resume on lock screen
+            var wasPlaying = false;
+            setInterval(function() {
+                var video = document.querySelector('video');
+                if (video) {
+                    if (!video.paused && !video.ended) {
+                        wasPlaying = true;
+                    } else if (wasPlaying && video.paused && !video.ended && document.hidden) {
+                        // YouTube paused because screen locked -> auto-resume
+                        try { video.play(); } catch(e) {}
+                    }
+                }
+            }, 1000);
+
+            // ── 2. Auto-Skip Video Ads ─────────────────────────────────
             function skipAds() {
-                // If ad is playing, jump video to end & mute
                 var video = document.querySelector('video');
                 var adShowing = document.querySelector('.ad-showing, .ad-interrupting');
                 if (adShowing && video) {
@@ -66,7 +105,6 @@ object AdBlockEngine {
                     } catch(e) {}
                 }
 
-                // Click all known skip ad button variations
                 var skipSelectors = [
                     '.ytp-ad-skip-button',
                     '.ytp-ad-skip-button-modern',
@@ -88,7 +126,7 @@ object AdBlockEngine {
                 }
             }
 
-            // 2. Remove annoying banners & promo popups
+            // ── 3. Clean Nag Prompts & App Banners ─────────────────────
             function removeNagElements() {
                 var badTags = [
                     'ytm-app-promo-renderer',
@@ -104,7 +142,6 @@ object AdBlockEngine {
                 }
             }
 
-            // Run regularly
             setInterval(skipAds, 200);
             setInterval(removeNagElements, 800);
         })();
@@ -126,6 +163,6 @@ object AdBlockEngine {
         """.trimIndent()
 
         webView.evaluateJavascript(cssInjectScript, null)
-        webView.evaluateJavascript(AD_BLOCK_JS, null)
+        webView.evaluateJavascript(AD_BLOCK_AND_BACKGROUND_JS, null)
     }
 }

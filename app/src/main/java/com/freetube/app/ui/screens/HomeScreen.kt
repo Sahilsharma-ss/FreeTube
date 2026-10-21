@@ -59,59 +59,7 @@ fun HomeScreen(
     val context         = LocalContext.current
     val focusManager    = LocalFocusManager.current
     val searchQuery     by viewModel.searchQuery.collectAsState()
-    val showBraveDialog by viewModel.showBraveDialog.collectAsState()
     var selectedCategory by remember { mutableStateOf("All") }
-
-    // ── Brave not installed dialog ────────────────────────────────────────
-    if (showBraveDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissBraveDialog() },
-            containerColor   = com.freetube.app.ui.theme.BlackCard,
-            icon = {
-                Icon(
-                    Icons.Filled.Shield,
-                    contentDescription = null,
-                    tint     = com.freetube.app.ui.theme.FTRed,
-                    modifier = Modifier.size(32.dp)
-                )
-            },
-            title = {
-                Text(
-                    "Brave Browser Required",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = com.freetube.app.ui.theme.White
-                )
-            },
-            text = {
-                Text(
-                    "FreeTube uses Brave Browser to open YouTube ad-free. Install Brave — it's free and takes 30 seconds.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = com.freetube.app.ui.theme.WhiteDim
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = { viewModel.openBraveOnPlayStore(context) },
-                    colors  = ButtonDefaults.buttonColors(containerColor = com.freetube.app.ui.theme.FTRed),
-                    shape   = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Filled.Download, contentDescription = null, tint = com.freetube.app.ui.theme.White)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Install Brave", color = com.freetube.app.ui.theme.White)
-                }
-            },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = { viewModel.openPendingInDefaultBrowser(context) }) {
-                        Text("Open Anyway", color = com.freetube.app.ui.theme.WhiteDim)
-                    }
-                    TextButton(onClick = { viewModel.dismissBraveDialog() }) {
-                        Text("Cancel", color = com.freetube.app.ui.theme.WhiteMuted)
-                    }
-                }
-            }
-        )
-    }
 
     Scaffold(
         containerColor = Black,
