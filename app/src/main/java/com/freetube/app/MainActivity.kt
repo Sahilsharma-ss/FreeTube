@@ -1,6 +1,9 @@
 package com.freetube.app
 
+import android.app.PictureInPictureParams
+import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +26,7 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private var shouldEnterPipOnLeave = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,6 +42,10 @@ class MainActivity : ComponentActivity() {
                 val showBottomBar = !isFullscreen &&
                     currentRoute != Screen.Splash.route &&
                     currentRoute != Screen.Onboarding.route
+
+                SideEffect {
+                    shouldEnterPipOnLeave = currentRoute == Screen.Home.route && !isFullscreen
+                }
 
                 SideEffect {
                     if (isFullscreen) {
@@ -74,6 +82,20 @@ class MainActivity : ComponentActivity() {
                         ) {
                             FreeTubeNavHost(navController)
                         }
+                    }
+                }
+
+                override fun onUserLeaveHint() {
+                    super.onUserLeaveHint()
+                    if (
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                        shouldEnterPipOnLeave &&
+                        !isInPictureInPictureMode
+                    ) {
+                        val params = PictureInPictureParams.Builder()
+                            .setAspectRatio(Rational(16, 9))
+                            .build()
+                        enterPictureInPictureMode(params)
                     }
                 }
             }

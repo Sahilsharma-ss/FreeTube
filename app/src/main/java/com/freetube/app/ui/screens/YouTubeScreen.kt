@@ -65,10 +65,6 @@ fun YouTubeScreen(
                 webView.onResume()
                 webView.resumeTimers()
             }
-
-            override fun onPause(owner: LifecycleOwner) {
-                webView.onPause()
-            }
         }
 
         lifecycleOwner.lifecycle.addObserver(observer)
