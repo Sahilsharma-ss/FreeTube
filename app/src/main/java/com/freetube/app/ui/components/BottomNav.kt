@@ -28,8 +28,7 @@ data class BottomNavItem(
 val bottomNavItems = listOf(
     BottomNavItem("Home",     Icons.Filled.Home,        Screen.Home.route),
     BottomNavItem("Search",   Icons.Filled.Search,      Screen.Search.route),
-    BottomNavItem("Library",  Icons.Filled.VideoLibrary, Screen.Library.route),
-    BottomNavItem("Settings", Icons.Filled.Settings,    Screen.Settings.route)
+    BottomNavItem("Library",  Icons.Filled.VideoLibrary, Screen.Library.route)
 )
 
 @Composable

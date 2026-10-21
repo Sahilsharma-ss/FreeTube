@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.*
@@ -13,7 +14,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import com.freetube.app.ui.PlayerStateManager
 import com.freetube.app.util.AdBlockEngine
 
@@ -25,6 +29,8 @@ fun YouTubeScreen(
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var customView by remember { mutableStateOf<View?>(null) }
     var customViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
+    var webViewState by rememberSaveable { mutableStateOf<Bundle?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val pendingUrlToLoad by PlayerStateManager.loadUrlEvent.collectAsState()
 
@@ -49,6 +55,28 @@ fun YouTubeScreen(
             PlayerStateManager.setFullscreen(false)
         } else if (webViewRef?.canGoBack() == true) {
             webViewRef?.goBack()
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, webViewRef) {
+        val webView = webViewRef ?: return@DisposableEffect onDispose { }
+        val observer = object : DefaultLifecycleObserver {
+            override fun onResume(owner: LifecycleOwner) {
+                webView.onResume()
+                webView.resumeTimers()
+            }
+
+            override fun onPause(owner: LifecycleOwner) {
+                webView.onPause()
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            val state = Bundle()
+            webView.saveState(state)
+            webViewState = state
         }
     }
 
@@ -150,7 +178,12 @@ fun YouTubeScreen(
                             }
                         }
 
-                        loadUrl(initialUrl)
+                        val savedState = webViewState
+                        if (savedState != null) {
+                            restoreState(savedState)
+                        } else {
+                            loadUrl(initialUrl)
+                        }
                         webViewRef = this
                     }
                 },
