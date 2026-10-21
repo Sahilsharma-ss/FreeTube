@@ -1,0 +1,26 @@
+## Android Studio / IntelliJ artifacts
+.idea/
+*.iml
+*.iws
+.DS_Store
+
+## Gradle build output
+.gradle/
+build/
+app/build/
+
+## Local config (never commit these)
+local.properties
+keystore.jks
+*.keystore
+*.jks
+
+## OS files
+Thumbs.db
+.DS_Store
+
+## Proguard
+proguard/
+
+## Generated files
+app/src/main/res/values/styles.xml
