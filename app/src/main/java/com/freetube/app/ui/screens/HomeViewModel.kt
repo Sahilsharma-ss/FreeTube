@@ -23,6 +23,8 @@ class HomeViewModel @Inject constructor(
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
+    private val _showBraveDialog = MutableStateFlow(false)
+    val showBraveDialog: StateFlow<Boolean> = _showBraveDialog
 
     fun onSearchQueryChange(q: String) { _searchQuery.value = q }
 
@@ -70,5 +72,17 @@ class HomeViewModel @Inject constructor(
     fun searchOnYouTube(context: Context, query: String) {
         val searchUrl = "https://m.youtube.com/results?search_query=${Uri.encode(query)}"
         openVideo(searchUrl, "Search: $query")
+    }
+
+    fun dismissBraveDialog() {
+        _showBraveDialog.value = false
+    }
+
+    fun openBraveOnPlayStore(context: Context) {
+        dismissBraveDialog()
+    }
+
+    fun openPendingInDefaultBrowser(context: Context) {
+        dismissBraveDialog()
     }
 }
