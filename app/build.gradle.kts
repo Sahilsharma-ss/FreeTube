@@ -76,5 +76,8 @@ dependencies {
     // System UI Controller
     implementation(libs.accompanist.systemuicontroller)
 
+    // AndroidX Media (MediaSessionCompat, MediaStyle notifications)
+    implementation(libs.androidx.media)
+
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -15,10 +16,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import com.freetube.app.service.MediaPlaybackService
 import com.freetube.app.ui.PlayerStateManager
 import com.freetube.app.util.AdBlockEngine
 
@@ -32,6 +35,7 @@ fun YouTubeScreen(
     var customViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
     var webViewState by rememberSaveable { mutableStateOf<Bundle?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
 
     val pendingUrlToLoad by PlayerStateManager.loadUrlEvent.collectAsState()
 
@@ -65,6 +69,23 @@ fun YouTubeScreen(
             override fun onResume(owner: LifecycleOwner) {
                 webView.onResume()
                 webView.resumeTimers()
+                // App came to foreground — dismiss the background playback notification
+                context.stopService(Intent(context, MediaPlaybackService::class.java))
+            }
+
+            override fun onPause(owner: LifecycleOwner) {
+                // App went to background — show persistent media notification
+                val serviceIntent = Intent(context, MediaPlaybackService::class.java).apply {
+                    putExtra(
+                        MediaPlaybackService.EXTRA_TITLE,
+                        webView.title?.takeIf { it.isNotBlank() } ?: "Playing on YouTube"
+                    )
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
             }
         }
 
