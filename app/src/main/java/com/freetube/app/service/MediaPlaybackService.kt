@@ -6,13 +6,13 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.support.v4.media.session.MediaSessionCompat
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import com.freetube.app.MainActivity
-import com.freetube.app.R
 
 class MediaPlaybackService : Service() {
 
@@ -38,7 +38,17 @@ class MediaPlaybackService : Service() {
         }
 
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Playing on YouTube"
-        startForeground(NOTIFICATION_ID, buildNotification(title))
+        val notification = buildNotification(title)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
         return START_STICKY
     }
 
@@ -58,7 +68,7 @@ class MediaPlaybackService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle("FreeTube")
             .setContentText(title)
             .setContentIntent(openIntent)
@@ -75,7 +85,8 @@ class MediaPlaybackService : Service() {
                 stopIntent
             )
             .setStyle(
-                MediaStyle(mediaSession.sessionToken)
+                MediaStyle()
+                    .setMediaSession(mediaSession.sessionToken)
                     .setShowActionsInCompactView(0, 1)
             )
             .build()

@@ -26,7 +26,11 @@ jobs:
 
       # 3. Write local.properties so Gradle can find the Android SDK on CI
       - name: Create local.properties
-        run: echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
+        run: |
+          SDK_PATH="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -n "$SDK_PATH" ]; then
+            echo "sdk.dir=$SDK_PATH" > local.properties
+          fi
 
       # 4. Grant execute permission to gradlew
       - name: Grant execute permission for gradlew
