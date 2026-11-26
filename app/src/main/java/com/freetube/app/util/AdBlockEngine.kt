@@ -32,7 +32,9 @@ object AdBlockEngine {
         .mealbar-promo-renderer,
         .butterbar-container,
         ytm-pivot-bar-renderer ytm-app-promo-renderer,
-        .dialog-upsell-renderer {
+        .dialog-upsell-renderer,
+        ytm-open-app-banner-renderer,
+        ytm-mealbar-promo-renderer {
             display: none !important;
             visibility: hidden !important;
             height: 0 !important;
@@ -78,31 +80,71 @@ object AdBlockEngine {
                 window.addEventListener('pagehide', stopEvent, true);
             } catch(e) {}
 
-            // Track user playing state to auto-resume on lock screen
-            var wasPlaying = false;
-            setInterval(function() {
-                var video = document.querySelector('video');
-                if (video) {
-                    if (!video.paused && !video.ended) {
-                        wasPlaying = true;
-                    } else if (wasPlaying && video.paused && !video.ended && document.hidden) {
-                        // YouTube paused because screen locked -> auto-resume
-                        try { video.play(); } catch(e) {}
+            // ── 1b. Report playback to native + accept commands from native ──
+            // Native side (MediaPlaybackService) shows the notification / lock-screen controls
+            // from this data and drives the <video> through window.__ftControl.
+            function getVideo() { return document.querySelector('video'); }
+
+            function report() {
+                if (!window.FreeTubeBridge) return;
+                try {
+                    var v = getVideo();
+                    var hasMedia = !!(v && (v.currentSrc || v.src) && v.readyState > 0);
+                    var md = navigator.mediaSession && navigator.mediaSession.metadata;
+                    var title = (md && md.title) || document.title.replace(' - YouTube', '');
+                    var artist = (md && md.artist) || '';
+                    var art = '';
+                    if (md && md.artwork && md.artwork.length) {
+                        art = md.artwork[md.artwork.length - 1].src || '';
                     }
-                }
-            }, 1000);
+                    var dur = (v && isFinite(v.duration)) ? v.duration * 1000 : 0;
+                    FreeTubeBridge.onMediaState(
+                        hasMedia, title, artist, art,
+                        !!(v && !v.paused && !v.ended),
+                        v ? v.currentTime * 1000 : 0, dur
+                    );
+                } catch (e) {}
+            }
+
+            window.__ftControl = function(action, arg) {
+                var v = getVideo();
+                if (!v) return;
+                try {
+                    switch (action) {
+                        case 'play':   v.play().catch(function() {}); break;
+                        case 'pause':  v.pause(); break;
+                        case 'toggle': if (v.paused) { v.play().catch(function() {}); } else { v.pause(); } break;
+                        case 'seekBy': v.currentTime = Math.max(0, v.currentTime + arg); break;
+                        case 'seekTo': v.currentTime = Math.max(0, arg); break;
+                        case 'next':
+                            var n = document.querySelector('.ytp-next-button, button[aria-label="Next video"]');
+                            if (n) { n.click(); } else if (isFinite(v.duration)) { v.currentTime = v.duration; }
+                            break;
+                    }
+                } catch (e) {}
+                setTimeout(report, 150);
+            };
+
+            setInterval(report, 1000);
 
             // ── 2. Auto-Skip Video Ads ─────────────────────────────────
+            var mutedByUs = false;
+            var mutedBefore = false;
             function skipAds() {
                 var video = document.querySelector('video');
                 var adShowing = document.querySelector('.ad-showing, .ad-interrupting');
                 if (adShowing && video) {
                     try {
+                        if (!mutedByUs) { mutedBefore = video.muted; mutedByUs = true; }
                         video.muted = true;
                         if (!isNaN(video.duration) && video.duration > 0) {
                             video.currentTime = video.duration;
                         }
                     } catch(e) {}
+                } else if (mutedByUs && video) {
+                    // Ad is gone: give the user their original volume state back.
+                    try { video.muted = mutedBefore; } catch(e) {}
+                    mutedByUs = false;
                 }
 
                 var skipSelectors = [
