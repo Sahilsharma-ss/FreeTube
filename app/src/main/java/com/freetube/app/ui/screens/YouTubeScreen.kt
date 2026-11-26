@@ -1,100 +1,73 @@
 package com.freetube.app.ui.screens
 
-import android.annotation.SuppressLint
-import android.content.Intent
-import android.graphics.Bitmap
-import android.net.Uri
-import android.os.Build
-import android.os.Bundle
-import android.view.View
+import android.app.Activity
 import android.view.ViewGroup
-import android.webkit.*
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
-import com.freetube.app.service.MediaPlaybackService
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import com.freetube.app.playback.YouTubeWebHolder
 import com.freetube.app.ui.PlayerStateManager
-import com.freetube.app.util.AdBlockEngine
 
-@SuppressLint("SetJavaScriptEnabled")
+/**
+ * The whole app: YouTube's own mobile UI, ad-free, in a WebView that lives in
+ * [YouTubeWebHolder] so it survives tab changes, rotation and backgrounding.
+ */
 @Composable
-fun YouTubeScreen(
-    initialUrl: String = "https://m.youtube.com"
-) {
-    var webViewRef by remember { mutableStateOf<WebView?>(null) }
-    var customView by remember { mutableStateOf<View?>(null) }
-    var customViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
-    var webViewState by rememberSaveable { mutableStateOf<Bundle?>(null) }
-    val lifecycleOwner = LocalLifecycleOwner.current
+fun YouTubeScreen() {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val customView by PlayerStateManager.customView.collectAsState()
+    val pendingUrl by PlayerStateManager.loadUrlEvent.collectAsState()
 
-    val pendingUrlToLoad by PlayerStateManager.loadUrlEvent.collectAsState()
+    val webView = YouTubeWebHolder.getOrCreate(context)
 
-    // Handle incoming URL change events
-    LaunchedEffect(pendingUrlToLoad) {
-        pendingUrlToLoad?.let { url ->
-            webViewRef?.let { wv ->
-                if (wv.url != url) {
-                    wv.loadUrl(url)
-                }
+    // Lend the WebView an Activity context while we're on screen, hand it back afterwards.
+    DisposableEffect(webView) {
+        YouTubeWebHolder.attach(context)
+        onDispose { YouTubeWebHolder.detach(context) }
+    }
+
+    // NOTE: deliberately no webView.onPause(): that is what suspends media in the background.
+    DisposableEffect(lifecycleOwner, webView) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                webView.onResume()
+                webView.resumeTimers()
             }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(pendingUrl) {
+        pendingUrl?.let {
+            YouTubeWebHolder.load(it)
             PlayerStateManager.clearLoadUrlEvent()
         }
     }
 
-    // Android Hardware Back button handling
-    BackHandler(enabled = customView != null || webViewRef?.canGoBack() == true) {
-        if (customView != null) {
-            customViewCallback?.onCustomViewHidden()
-            customView = null
-            customViewCallback = null
-            PlayerStateManager.setFullscreen(false)
-        } else if (webViewRef?.canGoBack() == true) {
-            webViewRef?.goBack()
-        }
-    }
-
-    DisposableEffect(lifecycleOwner, webViewRef) {
-        val webView = webViewRef ?: return@DisposableEffect onDispose { }
-        val observer = object : DefaultLifecycleObserver {
-            override fun onResume(owner: LifecycleOwner) {
-                webView.onResume()
-                webView.resumeTimers()
-                // App came to foreground — dismiss the background playback notification
-                context.stopService(Intent(context, MediaPlaybackService::class.java))
-            }
-
-            override fun onPause(owner: LifecycleOwner) {
-                // App went to background — show persistent media notification
-                val serviceIntent = Intent(context, MediaPlaybackService::class.java).apply {
-                    putExtra(
-                        MediaPlaybackService.EXTRA_TITLE,
-                        webView.title?.takeIf { it.isNotBlank() } ?: "Playing on YouTube"
-                    )
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(serviceIntent)
-                } else {
-                    context.startService(serviceIntent)
-                }
-            }
-        }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            val state = Bundle()
-            webView.saveState(state)
-            webViewState = state
+    // Back: exit fullscreen -> navigate YouTube history -> otherwise send app to background
+    // (not finish), so audio keeps playing like a browser would.
+    BackHandler {
+        when {
+            customView != null -> PlayerStateManager.hideCustomView()
+            webView.canGoBack() -> webView.goBack()
+            else -> (context as? Activity)?.moveTaskToBack(true)
         }
     }
 
@@ -103,111 +76,36 @@ fun YouTubeScreen(
             .fillMaxSize()
             .background(Color(0xFF0F0F0F))
     ) {
-        if (customView != null) {
-            // Fullscreen video player view
+        // The WebView stays in the tree even in fullscreen, so it is never detached
+        // (detaching hides the page and would pause the video).
+        AndroidView(
+            factory = {
+                (webView.parent as? ViewGroup)?.removeView(webView)
+                webView.layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                webView
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        )
+
+        customView?.let { view ->
             AndroidView(
                 factory = {
-                    customView!!.apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            // Pure In-App YouTube (NO URL bar, pure native web app)
-            AndroidView(
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-
-                        setBackgroundColor(0xFF0F0F0F.toInt())
-
-                        settings.apply {
-                            javaScriptEnabled = true
-                            domStorageEnabled = true
-                            databaseEnabled = true
-                            mediaPlaybackRequiresUserGesture = false
-                            setSupportMultipleWindows(false)
-                            userAgentString = AdBlockEngine.USER_AGENT
-                            cacheMode = WebSettings.LOAD_DEFAULT
-                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                            useWideViewPort = true
-                            loadWithOverviewMode = true
-                            builtInZoomControls = false
-                            displayZoomControls = false
-                        }
-
-                        webViewClient = object : WebViewClient() {
-                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                super.onPageStarted(view, url, favicon)
-                                view?.let { AdBlockEngine.inject(it) }
-                            }
-
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                super.onPageFinished(view, url)
-                                view?.let { AdBlockEngine.inject(it) }
-                            }
-
-                            override fun shouldOverrideUrlLoading(
-                                view: WebView?,
-                                request: WebResourceRequest?
-                            ): Boolean {
-                                val url = request?.url?.toString() ?: return false
-
-                                // Keep all YouTube, Google Auth, and internal media inside the app
-                                if (url.contains("youtube.com") ||
-                                    url.contains("youtu.be") ||
-                                    url.contains("google.com/accounts") ||
-                                    url.contains("accounts.google")
-                                ) {
-                                    return false
-                                }
-
-                                // External links (e.g. twitter, patron) open in system viewer
-                                return try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                    ctx.startActivity(intent)
-                                    true
-                                } catch (_: Exception) {
-                                    false
-                                }
-                            }
-                        }
-
-                        webChromeClient = object : WebChromeClient() {
-                            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
-                                customView = view
-                                customViewCallback = callback
-                                PlayerStateManager.setFullscreen(true)
-                            }
-
-                            override fun onHideCustomView() {
-                                customView = null
-                                customViewCallback = null
-                                PlayerStateManager.setFullscreen(false)
-                            }
-                        }
-
-                        val savedState = webViewState
-                        if (savedState != null) {
-                            restoreState(savedState)
-                        } else {
-                            loadUrl(initialUrl)
-                        }
-                        webViewRef = this
-                    }
+                    (view.parent as? ViewGroup)?.removeView(view)
+                    view.layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    view
                 },
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
+                    .background(Color.Black)
             )
         }
     }
